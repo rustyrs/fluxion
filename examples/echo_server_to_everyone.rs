@@ -1,6 +1,5 @@
+use fluxion::plugin::FluxionNetworkPlugin;
 use fluxion::prelude::*;
-use fluxion::server;
-use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message as WsMessage;
 
 // ブロードキャストシステム
@@ -30,30 +29,10 @@ fn broadcast_system(
 }
 
 fn main() {
-    let (ecs_tx, ecs_rx) = mpsc::channel::<NetworkEvent>(1024);
-
-    std::thread::spawn(move || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            if let Err(e) = server::run("127.0.0.1:8080", ecs_tx).await {
-                eprintln!("Server error: {}", e);
-            }
-        });
-    });
-
     let mut app = FluxionApp::new();
     
-    app.world.insert_resource(NetworkReceiver(ecs_rx));
-    app.world.insert_resource(Messages::<MessageReceived>::default());
-
-    app.add_systems(
-        MainSchedule,
-        (
-            |mut msgs: ResMut<Messages<MessageReceived>>| msgs.update(),
-            receive_network_messages_system,
-            broadcast_system,
-        )
-    );
+    app.add_plugins(FluxionNetworkPlugin::new("127.0.0.1:8080")) // コア機能
+        .add_systems(MainSchedule, broadcast_system);
 
     app.run();
 }

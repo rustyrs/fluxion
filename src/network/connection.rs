@@ -1,12 +1,9 @@
-use crate::{
-    ecs,
-    network::channels::{ClientMessage, NetworkEvent},
-};
+use crate::network::channels::NetworkEvent;
 use futures_util::{SinkExt, StreamExt};
 use std::net::SocketAddr;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
-use tokio_tungstenite::tungstenite::{Message, client};
+use tokio_tungstenite::tungstenite::Message;
 
 pub async fn handle_connection(
     stream: TcpStream,

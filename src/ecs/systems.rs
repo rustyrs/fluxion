@@ -1,7 +1,8 @@
-use crate::{ecs::events::MessageReceived, network::channels::{ NetworkEvent}, plugin::*};
+use crate::{ecs::events::MessageReceived, network::channels::NetworkEvent};
 use crate::ecs::components::*;
 use bevy_ecs::{
-    entity::Entity, message::MessageWriter, resource::Resource, schedule::{IntoScheduleConfigs,  Schedule, ScheduleLabel}, system::{Commands, Query, ResMut, ScheduleSystem}, world::World
+    entity::Entity, message::MessageWriter, resource::Resource, 
+    system::{Commands, Query, ResMut}
 };
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;

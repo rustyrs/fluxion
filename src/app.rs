@@ -7,7 +7,7 @@ use crate::plugin::*;
 use bevy_ecs::{
     error::ErrorHandler, 
     schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel}, 
-    system::{Commands, Query, ResMut, ScheduleSystem}, 
+    system::ScheduleSystem, 
     world::World
 };
 
@@ -72,23 +72,14 @@ impl FluxionApp {
         }
     }
 
-    /// Returns the current state of the application's plugins.
-    /// 
-    /// # Panics
-    /// 
-    /// Currently panics because it is not yet implemented.
     #[inline]
     pub fn plugins_state(&mut self) -> PluginsState {
-        todo!();
+        PluginsState::Ready
     }
 
-    /// Adds one or more plugins to the application.
-    /// 
-    /// # Panics
-    /// 
-    /// Currently panics because it is not yet implemented.
-    pub fn add_plugins<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
-        todo!();
+    pub fn add_plugins<P: Plugins>(&mut self, plugins: P) -> &mut Self {
+        plugins.add_to_app(self);
+        self
     }
 
     /// Adds systems to the application's schedule.

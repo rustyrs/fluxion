@@ -1,4 +1,3 @@
-// `bevy_ecs` クレートを探しに行けるようにするための魔法です。
 pub use bevy_ecs;
 
 pub mod app;
