@@ -1,0 +1,14 @@
+[package]
+name = "fluxion"
+version = "0.0.1"
+edition = "2024"
+description = "ECS based Web framework"
+license = "MIT"
+repository = "https://github.com/rustyrs/fluxion"
+
+
+[dependencies]
+bevy_ecs = "0.18.1"
+futures-util = "0.3.32"
+tokio = { version = "1.50.0", features = ["full"] }
+tokio-tungstenite = "0.29.0"
