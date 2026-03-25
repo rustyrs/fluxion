@@ -2,10 +2,19 @@ use crate::app::{FluxionApp, MainSchedule};
 use crate::ecs::events::MessageReceived;
 use crate::ecs::systems::{NetworkReceiver, receive_network_messages_system};
 use crate::network::channels::NetworkEvent;
-use crate::prelude::ConnectionMap;
+use crate::ecs::resources::ConnectionMap;
 use bevy_ecs::prelude::*;
 use tokio::sync::mpsc;
 use crate::server;
+
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
+pub enum PluginsState {
+    Adding,
+    Ready,
+    Finished,
+    Cleaned,
+}
 
 /// Tokioランタイムの起動からECSとのブリッジ構築までを隠蔽するプラグイン
 pub struct FluxionNetworkPlugin {
@@ -89,37 +98,3 @@ impl_plugins_for_tuples!(P1, P2, P3);
 impl_plugins_for_tuples!(P1, P2, P3, P4);
 impl_plugins_for_tuples!(P1, P2, P3, P4, P5);
 impl_plugins_for_tuples!(P1, P2, P3, P4, P5, P6);
-
-#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
-pub enum PluginsState {
-    Adding,
-    Ready,
-    Finished,
-    Cleaned,
-}
-
-// Fluxionが動くためのコア機能を一手に引き受けるプラグイン
-pub struct FluxionCorePlugin {
-    pub ecs_rx: mpsc::Receiver<NetworkEvent>,
-}
-
-impl Plugin for FluxionCorePlugin {
-    fn build(self, app: &mut FluxionApp) {
-        
-        // リソースの登録
-        app.world.insert_resource(NetworkReceiver(self.ecs_rx));
-        app.world.insert_resource(Messages::<MessageReceived>::default());
-
-
-        // コアシステムの登録
-        app.add_systems(
-            MainSchedule,
-            (
-                // 古いメッセージイベントの破棄
-                |mut msgs: ResMut<Messages<MessageReceived>>| msgs.update(),
-                // ネットワークからECSへのメッセージの橋渡し
-                receive_network_messages_system,
-            ),
-        );
-    }
-}
