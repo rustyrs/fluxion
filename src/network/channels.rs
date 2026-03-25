@@ -11,14 +11,14 @@ pub struct ClientMessage {
 // ネットワーク層からECSへ送るイベント
 pub enum NetworkEvent {
     Connected {
-        id: SocketAddr,
+        id: u64,
         sender: mpsc::Sender<Message>,
     },
     Message {
-        id: SocketAddr,
+        id: u64,
         msg: Message,
     },
     Disconnected {
-        id: SocketAddr,
+        id: u64,
     }
 }
