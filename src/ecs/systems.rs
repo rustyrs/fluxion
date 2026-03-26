@@ -1,3 +1,4 @@
+use crate::ecs::events::SendWsMessage;
 use crate::{ecs::events::MessageReceived, network::channels::NetworkEvent};
 use crate::ecs::components::*;
 use bevy_ecs::{
@@ -7,6 +8,7 @@ use bevy_ecs::{
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 use crate::ecs::resources::ConnectionMap;
+use bevy_ecs::message::MessageReader;
 
 // Resource用のラッパー構造体
 #[derive(Resource)]
@@ -50,6 +52,21 @@ pub fn send_network_messages_system(
         // try_send を使って非同期待ちを回避
         if let Err(e) = sender.0.try_send(msg) {
             println!("{} への送信に失敗: {}", client_id.0, e);
+        }
+    }
+}
+
+pub fn flush_outbound_messages_system(
+    mut outbound_messages: MessageReader<SendWsMessage>,
+    query: Query<&ClientSender>,
+) {
+    for outbound in outbound_messages.read() {
+        if let Ok(sender) = query.get(outbound.target) {
+            if let Err(e) = sender.0.try_send(outbound.msg.clone()) {
+                eprintln!("{e}");
+            }
+        } else {
+            eprintln!("Destination Entity does not exist anymore");
         }
     }
 }

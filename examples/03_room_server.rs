@@ -1,3 +1,5 @@
+// v0.0.2
+
 use fluxion::{ecs::resources::ServerTickRate, prelude::*};
 use tokio_tungstenite::tungstenite::Message as WsMessage;
 
@@ -5,10 +7,11 @@ use tokio_tungstenite::tungstenite::Message as WsMessage;
 fn room_chat_system(
     mut commands: Commands,
     mut messages: MessageReader<MessageReceived>,
+    mut outbound: MessageWriter<SendWsMessage>,
     // 1つ目のクエリ: イベントの送信元（Entity）を特定するため
     sender_query: Query<(&ClientId, Option<&Room>)>,
     // 2つ目のクエリ: メッセージの送信先（宛先）を探すため
-    target_query: Query<(&ClientSender, &Room)>,
+    target_query: Query<(Entity, &Room)>,
 ) {
     for event in messages.read() {
         let text = match &event.msg {
@@ -41,17 +44,25 @@ fn room_chat_system(
             let broadcast_msg = WsMessage::Text(broadcast_text.into());
 
             // target_queryは「Roomコンポーネントを持っている人」しか取得しない
-            for (target_sender, target_room) in target_query.iter() {
+            for (target_entity, target_room) in target_query.iter() {
                 // 送信元のRoomと同じRoomの人にだけ送る
                 if target_room.0 == room.0 {
-                    let _ = target_sender.0.try_send(broadcast_msg.clone());
+                    outbound.write(SendWsMessage { 
+                        target: target_entity, 
+                        msg: broadcast_msg.clone(),
+                    });
                 }
             }
         } else {
             // Roomに入っていない人にはエラーを返す
             let warn_msg =
                 WsMessage::Text("You are not in any room. Type '/join <room_name>'".into());
-            // sender_queryから取得した送信元情報を元に、ClientSenderを取得して送り返す等（ここでは省略）
+
+            outbound.write(SendWsMessage { 
+                target: event.entity, 
+                msg: warn_msg, 
+            });
+            
             println!("{} is not in a room, message ignored.", sender_id.0);
         }
     }

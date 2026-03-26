@@ -1,18 +1,20 @@
+// v0.0.2
+
 use fluxion::prelude::*;
 
 // 1. システム定義
 fn echo_system(
     mut messages: MessageReader<MessageReceived>,
-    query: Query<(&ClientId, &ClientSender)>,
+    mut outbound: MessageWriter<SendWsMessage>,
 ) {
-    for event in messages.read() {
-        for (client_id, sender) in query.iter() {
-            if client_id.0 == event.client_id {
-                let _ = sender.0.try_send(event.msg.clone());
-            }
-        }
+    for message in messages.read() {
+        outbound.write(SendWsMessage {
+            target: message.entity,
+            msg: message.msg.clone(),
+        });
     }
 }
+
 
 fn main() {
     // 2. FluxionAppを初期化

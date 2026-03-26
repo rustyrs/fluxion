@@ -1,3 +1,5 @@
+// v0.0.2
+
 use fluxion::plugin::FluxionNetworkPlugin;
 use fluxion::prelude::*;
 use tokio_tungstenite::tungstenite::Message as WsMessage;
@@ -5,7 +7,8 @@ use tokio_tungstenite::tungstenite::Message as WsMessage;
 // ブロードキャストシステム
 fn broadcast_system(
     mut messages: MessageReader<MessageReceived>,
-    query: Query<(&ClientId, &ClientSender)>,
+    mut outbound: MessageWriter<SendWsMessage>,
+    query: Query<(Entity, &ClientSender)>,
 ) {
     for event in messages.read() {
         // テキストメッセージだけを抽出（バイナリやPing等は一旦無視）
@@ -18,11 +21,12 @@ fn broadcast_system(
         let broadcast_text = format!("[{}]: {}", event.client_id, text_content);
         let broadcast_msg = WsMessage::Text(broadcast_text.into());
 
-        // クエリで取得した「全クライアント」に対してメッセージを送信
-        for (target_client_id, sender) in query.iter() {
-            if let Err(e) = sender.0.try_send(broadcast_msg.clone()) {
-                println!("{} への送信に失敗: {}", target_client_id.0, e);
-            }
+        // クエリで取得した全クライアント（Entity）に対して送信イベントを発行する
+        for (target_entity, _client_id) in query.iter() {
+            outbound.write(SendWsMessage {
+                target: target_entity,
+                msg: broadcast_msg.clone(),
+            });
         }
     }
 }

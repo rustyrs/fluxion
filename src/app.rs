@@ -2,7 +2,7 @@
 //! and run the main tick loop for the server.
 
 use std::time::{Duration, Instant};
-
+use bevy_ecs::{event::Event, message::{Message, MessageReader, Messages}};
 use crate::plugin::*;
 use bevy_ecs::{
     error::ErrorHandler, 
@@ -36,7 +36,7 @@ impl Default for FluxionApp {
         world.insert_resource(ServerTickRate::default());
 
         FluxionApp {
-            world: World::new(),
+            world,
             schedule: Schedule::new(MainSchedule),
             default_error_handler: None,
         }
@@ -44,26 +44,10 @@ impl Default for FluxionApp {
 }
 
 impl FluxionApp {
-    /// Creates a new, empty `FluxionApp`.
-    /// 
-    /// # Examples
-    /// 
-    /// ```
-    /// let app = FluxionApp::new();
-    /// ```
     pub fn new() -> FluxionApp {
         FluxionApp::default()
     }
 
-    /// Starts the server's main execution loop.
-    /// 
-    /// This method will continuously run all systems registered in the schedule.
-    /// It currently targets a tick rate of 60Hz by sleeping for 16 milliseconds per frame
-    /// to prevent maximum CPU utilization.
-    /// 
-    /// # Note
-    /// 
-    /// This method contains an infinite loop and will block the current thread indefinitely.
     pub fn run(&mut self) {
         println!("FluxionApp🚀");
 
@@ -98,6 +82,14 @@ impl FluxionApp {
         self
     }
 
+    pub fn add_event<M: Message>(&mut self) -> &mut Self {
+        if !self.world.contains_resource::<Messages<M>>() {
+            self.world.insert_resource(Messages::<M>::default());
+        }
+        self.world.insert_resource(Messages::<M>::default());
+        self
+    }
+
     #[inline]
     pub fn plugins_state(&mut self) -> PluginsState {
         PluginsState::Ready
@@ -108,12 +100,6 @@ impl FluxionApp {
         self
     }
 
-    /// Adds systems to the application's schedule.
-    /// 
-    /// # Note
-    /// 
-    /// Currently, the `_schedule` parameter is ignored, and systems are added
-    /// directly to the internal `MainSchedule`.
     pub fn add_systems<M>(
         &mut self,
         _schedule: impl ScheduleLabel,
