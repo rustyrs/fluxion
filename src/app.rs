@@ -2,7 +2,8 @@
 //! and run the main tick loop for the server.
 
 use std::time::{Duration, Instant};
-use bevy_ecs::{message::{Message, Messages}};
+use bevy_ecs::message::{Message, Messages};
+use bevy_ecs::prelude::*;
 use crate::plugin::*;
 use bevy_ecs::{
     error::ErrorHandler, 
@@ -85,8 +86,12 @@ impl FluxionApp {
     pub fn add_event<M: Message>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<Messages<M>>() {
             self.world.insert_resource(Messages::<M>::default());
+
+            self.add_systems(
+                MainSchedule,
+                |mut msgs: ResMut<Messages<M>>| msgs.update()
+            );
         }
-        self.world.insert_resource(Messages::<M>::default());
         self
     }
 

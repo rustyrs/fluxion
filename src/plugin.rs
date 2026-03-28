@@ -4,6 +4,7 @@ use crate::ecs::events::{MessageReceived, SendMessage};
 use crate::ecs::systems::NetworkReceiver;
 use crate::network::channels::NetworkEvent;
 use crate::ecs::resources::*;
+use crate::prelude::ChatCommand;
 use bevy_ecs::prelude::*;
 use tokio::sync::mpsc;
 
@@ -13,6 +14,17 @@ pub enum PluginsState {
     Ready,
     Finished,
     Cleaned,
+}
+
+// チャットアプリ開発を効率化する
+pub struct ChatPlugin; impl Plugin for ChatPlugin {
+    fn build(self, app: &mut FluxionApp) {
+        app.world.insert_resource(RoomMap::default());
+        app.add_event::<ChatCommand>();
+        app.add_systems(MainSchedule, |mut msgs: ResMut<Messages<ChatCommand>>| {
+            msgs.update()
+        });
+    }
 }
 
 /// Tokioランタイムの起動からECSとのブリッジ構築までを隠蔽するプラグイン
