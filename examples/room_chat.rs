@@ -128,6 +128,8 @@ fn parse_chat_messages_system(
                 entity: msg.entity,
                 name: name.trim().to_string()
             });
+        } else if text == "/list" {
+            ev_command.write(ChatCommand::ListRooms { entity: msg.entity });
         } else if text.starts_with('/') {
             // 未知のコマンドに対するエラーハンドリング
             ev_command.write(ChatCommand::Error {
@@ -246,6 +248,39 @@ fn handle_error_system(
     }
 }
 
+fn handle_list_rooms_system(
+    mut ev_command: MessageReader<ChatCommand>,
+    mut ev_send: MessageWriter<SendMessage>,
+    room_map: Res<RoomMap>,
+) {
+    for command in ev_command.read() {
+        if let ChatCommand::ListRooms { entity } = command {
+            let mut list_text = String::from("[System] Active Rooms:\n");
+            
+            let mut has_active_rooms = false;
+
+            // RoomMap の中身をループして一覧を作成
+            for (room_name, members) in room_map.0.iter() {
+                // 誰もいないルームは非表示にする
+                if !members.is_empty() {
+                    list_text.push_str(&format!("  - {} ({} users)\n", room_name, members.len()));
+                    has_active_rooms = true;
+                }
+            }
+
+            if !has_active_rooms {
+                list_text.push_str("  No active rooms right now.");
+            }
+
+            // 要求した本人に結果を送信
+            ev_send.write(SendMessage {
+                target: *entity,
+                payload: NetworkPayload::Text(list_text),
+            });
+        }
+    }
+}
+
 fn main() {
     FluxionApp::new()
         .add_event::<ChatCommand>()
@@ -257,6 +292,7 @@ fn main() {
             parse_chat_messages_system,
             handle_join_room_system,
             handle_nick_system,
+            handle_list_rooms_system,
             handle_error_system,
             handle_broadcast_system,
             handle_disconnections_system,

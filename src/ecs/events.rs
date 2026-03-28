@@ -32,6 +32,7 @@ pub struct UserDisconnected {
 pub enum ChatCommand {
     JoinRoom { entity: Entity, room_name: String },
     Nick { entity: Entity, name: String },
+    ListRooms { entity: Entity },
     Broadcast { entity: Entity, text: String },
     Error { entity: Entity, message: String },
 }
