@@ -27,3 +27,10 @@ pub struct UserDisconnected {
     pub entity: Entity,
     pub client_id: u64,
 }
+
+#[derive(Event, Message)]
+pub enum ChatCommand {
+    JoinRoom { entity: Entity, room_name: String },
+    Broadcast { entity: Entity, text: String },
+    Error { entity: Entity, message: String },
+}

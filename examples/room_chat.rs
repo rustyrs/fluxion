@@ -41,8 +41,6 @@ fn chat_server_system(
     mut ev_send: MessageWriter<SendMessage>,
     // メッセージ送信元のクライアント情報を取得するクエリ
     client_query: Query<(Entity, &ClientId, Option<&Room>)>,
-    // ルームに所属している全クライアントを取得するクエリ
-    room_query: Query<(Entity, &Room)>,
     mut room_map: ResMut<RoomMap>,
 ) {
     // ECS上で発火したすべての受信メッセージを処理
@@ -110,12 +108,105 @@ fn chat_server_system(
     }
 }
 
+
+fn parse_chat_messages_system(
+    mut ev_received: MessageReader<MessageReceived>,
+    mut ev_command: MessageWriter<ChatCommand>,
+) {
+    for msg in ev_received.read() {
+        let NetworkPayload::Text(text) = &msg.payload else { continue };
+        let text = text.trim();
+
+        if let Some(room_name) = text.strip_prefix("/join ") {
+            let room_name = room_name.trim().to_string();
+            ev_command.write(ChatCommand::JoinRoom { 
+                entity: msg.entity, 
+                room_name 
+            });
+        } else {
+            // コマンドでない場合は通常のブロードキャストとして処理
+            ev_command.write(ChatCommand::Broadcast { 
+                entity: msg.entity, 
+                text: text.to_string() 
+            });
+        }
+    }
+}
+
+fn handle_join_room_system(
+    mut commands: Commands,
+    mut ev_command: MessageReader<ChatCommand>,
+    mut ev_send: MessageWriter<SendMessage>,
+    client_query: Query<Option<&Room>>,
+    mut room_map: ResMut<RoomMap>,
+) {
+    for command in ev_command.read() {
+        if let ChatCommand::JoinRoom { entity, room_name } = command {
+            let Ok(current_room) = client_query.get(*entity) else { continue };
+
+            // 古いルームからの離脱処理
+            if let Some(old_room) = current_room {
+                if let Some(members) = room_map.0.get_mut(&old_room.0) {
+                    members.remove(entity);
+                }
+            }
+
+            // 新しいルームへの参加処理
+            room_map.0.entry(room_name.clone()).or_default().insert(*entity);
+            commands.entity(*entity).insert(Room(room_name.clone()));
+            
+            ev_send.write(SendMessage {
+                target: *entity,
+                payload: NetworkPayload::Text(format!("[System] Joined room: {}", room_name)),
+            });
+        }
+    }
+}
+
+fn handle_broadcast_system(
+    mut ev_command: MessageReader<ChatCommand>,
+    mut ev_send: MessageWriter<SendMessage>,
+    client_query: Query<(&ClientId, Option<&Room>)>,
+    room_map: Res<RoomMap>,
+) {
+    for command in ev_command.read() {
+        if let ChatCommand::Broadcast { entity, text } = command {
+            let Ok((client_id, current_room)) = client_query.get(*entity) else { continue };
+
+            if let Some(room) = current_room {
+                let broadcast_text = format!("User {}: {}", client_id.0, text);
+                
+                if let Some(members) = room_map.0.get(&room.0) {
+                    for &target_entity in members {
+                        ev_send.write(SendMessage {
+                            target: target_entity,
+                            payload: NetworkPayload::Text(broadcast_text.clone()),
+                        });
+                    }
+                }
+            } else {
+                ev_send.write(SendMessage {
+                    target: *entity,
+                    payload: NetworkPayload::Text("[System] You are not in a room. Type '/join <room_name>' first.".into()),
+                });
+            }
+        }
+    }
+}
+
 fn main() {
     FluxionApp::new()
+        .add_event::<ChatCommand>()
+        .add_systems(MainSchedule, |mut msgs: ResMut<Messages<ChatCommand>>| msgs.update())
         .add_plugins(FluxionWebSocketPlugin::new("127.0.0.1:8080"))
         .add_systems(
-            MainSchedule,
-            (chat_server_system, handle_disconnections_system),
+    MainSchedule,
+    (
+            parse_chat_messages_system,
+            handle_join_room_system,
+            handle_broadcast_system,
+            handle_disconnections_system,
+        ),
         )
         .run()
 }
