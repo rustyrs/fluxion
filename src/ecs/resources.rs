@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 // Entityを一発で引くための内部リソース
 #[derive(Resource, Default)]
@@ -20,3 +20,7 @@ impl ServerTickRate {
     pub const VERYHIGH: Self = Self(90.0);
     pub const REALTIME: Self = Self(120.0);
 }
+
+// ルーム名からそこに所属するエンティティ一覧をO(1)で引くため
+#[derive(Resource, Default)]
+pub struct RoomMap(pub HashMap<String, HashSet<Entity>>);

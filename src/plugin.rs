@@ -6,7 +6,7 @@ use crate::network::channels::NetworkEvent;
 use crate::ecs::resources::ConnectionMap;
 use bevy_ecs::prelude::*;
 use tokio::sync::mpsc;
-
+use crate::ecs::resources::*;
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
 pub enum PluginsState {
@@ -121,6 +121,7 @@ fn setup_network_ecs(app: &mut FluxionApp) {
     app.world.insert_resource(Messages::<MessageReceived>::default());
     app.world.insert_resource(Messages::<SendMessage>::default());
     app.world.insert_resource(ConnectionMap::default());
+    app.world.insert_resource(RoomMap::default());
     app.add_event::<SendMessage>();
     app.add_event::<UserDisconnected>();
 
