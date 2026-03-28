@@ -15,6 +15,8 @@ impl Default for ServerTickRate {
 }
 impl ServerTickRate {
     pub const ECO: Self = Self(10.0);
-    pub const NORMAL: Self = Self(60.0);
-    pub const HIGH: Self = Self(120.0);
+    pub const NORMAL: Self = Self(30.0);
+    pub const HIGH: Self = Self(60.0);
+    pub const VERYHIGH: Self = Self(90.0);
+    pub const REALTIME: Self = Self(120.0);
 }

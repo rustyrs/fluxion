@@ -57,20 +57,6 @@ impl Plugin for FluxionWebSocketPlugin {
 
         // イベント
         app.add_event::<SendMessage>();
-
-        // 必須システムの登録
-        // app.add_systems(
-        //     MainSchedule,
-        //     (
-        //                 // 古いイベントの破棄
-        //                 |mut msgs: ResMut<Messages<MessageReceived>>| msgs.update(),
-        //                 |mut msgs: ResMut<Messages<SendMessage>>| msgs.update(),
-
-        //                 receive_network_messages_system, // 受信イベントの橋渡し
-        //                 flush_outbound_messages_system,
-                                                  
-        //     )
-        // );
     }
 }
 

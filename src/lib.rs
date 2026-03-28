@@ -22,4 +22,6 @@ pub mod prelude {
 
     pub use crate::plugin::FluxionWebSocketPlugin;
     pub use crate::plugin::FluxionWebTransportPlugin;
+    pub use crate::ecs::resources::ServerTickRate as TickRate;
+    pub use crate::network::channels::NetworkPayload;
 }
