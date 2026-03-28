@@ -1,5 +1,7 @@
 use bevy_ecs::prelude::*;
 use std::collections::{HashMap, HashSet};
+use tokio::sync::mpsc;
+use crate::prelude::NetworkEvent;
 
 // Entityを一発で引くための内部リソース
 #[derive(Resource, Default)]
@@ -24,3 +26,7 @@ impl ServerTickRate {
 // ルーム名からそこに所属するエンティティ一覧をO(1)で引くため
 #[derive(Resource, Default)]
 pub struct RoomMap(pub HashMap<String, HashSet<Entity>>);
+
+// ECSのWorld経由でSenderを書くプラグインに送るため
+#[derive(Resource)]
+pub struct NetworkSender(pub mpsc::Sender<NetworkEvent>);

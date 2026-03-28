@@ -3,10 +3,9 @@ use crate::app::{FluxionApp, MainSchedule};
 use crate::ecs::events::{MessageReceived, SendMessage};
 use crate::ecs::systems::NetworkReceiver;
 use crate::network::channels::NetworkEvent;
-use crate::ecs::resources::ConnectionMap;
+use crate::ecs::resources::*;
 use bevy_ecs::prelude::*;
 use tokio::sync::mpsc;
-use crate::ecs::resources::*;
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
 pub enum PluginsState {
@@ -35,7 +34,8 @@ impl Plugin for FluxionWebSocketPlugin {
         setup_network_ecs(app);
 
         // TokioとECSを繋ぐMPSCチャンネルを作成
-        let (ecs_tx, ecs_rx) = mpsc::channel::<NetworkEvent>(1024);
+        // let (ecs_tx, ecs_rx) = mpsc::channel::<NetworkEvent>(1024);
+        let ecs_tx = app.world.get_resource::<NetworkSender>().unwrap().0.clone();
 
         // Tokioランタイムをバックグラウンドスレッドで起動し、サーバーをリッスンさせる
         let addr = self.address.clone();
@@ -49,14 +49,14 @@ impl Plugin for FluxionWebSocketPlugin {
         });
 
 
-        // ECSリソースの登録
-        app.world.insert_resource(NetworkReceiver(ecs_rx));
-        app.world.insert_resource(Messages::<MessageReceived>::default());
-        app.world.insert_resource(Messages::<SendMessage>::default());
-        app.world.insert_resource(ConnectionMap::default());
+        // // ECSリソースの登録
+        // app.world.insert_resource(NetworkReceiver(ecs_tx));
+        // app.world.insert_resource(Messages::<MessageReceived>::default());
+        // app.world.insert_resource(Messages::<SendMessage>::default());
+        // app.world.insert_resource(ConnectionMap::default());
 
-        // イベント
-        app.add_event::<SendMessage>();
+        // // イベント
+        // app.add_event::<SendMessage>();
     }
 }
 
@@ -118,8 +118,13 @@ fn setup_network_ecs(app: &mut FluxionApp) {
         return;
     }
 
+    let (ecs_tx, ecs_rx) = mpsc::channel::<NetworkEvent>(1024);
+    app.world.insert_resource(NetworkSender(ecs_tx));
+    app.world.insert_resource(NetworkReceiver(ecs_rx));
+
     app.world.insert_resource(Messages::<MessageReceived>::default());
     app.world.insert_resource(Messages::<SendMessage>::default());
+
     app.world.insert_resource(ConnectionMap::default());
     app.world.insert_resource(RoomMap::default());
     app.add_event::<SendMessage>();
@@ -139,10 +144,11 @@ fn setup_network_ecs(app: &mut FluxionApp) {
 
 impl Plugin for FluxionWebTransportPlugin {
     fn build(self, app: &mut FluxionApp) {
-        setup_network_ecs(app); // 共通のECSセットアップ
+        setup_network_ecs(app);
 
-        let (ecs_tx, ecs_rx) = mpsc::channel::<NetworkEvent>(1024);
-        app.world.insert_resource(NetworkReceiver(ecs_rx));
+        // let (ecs_tx, ecs_rx) = mpsc::channel::<NetworkEvent>(1024);
+        // app.world.insert_resource(NetworkReceiver(ecs_rx));
+        let ecs_tx = app.world.get_resource::<NetworkSender>().unwrap().0.clone();
 
         let addr = self.address.clone();
         std::thread::spawn(move || {
