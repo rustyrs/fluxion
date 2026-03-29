@@ -5,6 +5,7 @@ pub mod ecs;
 pub mod network;
 pub mod plugin;
 pub mod server;
+pub mod plugins;
 
 pub mod prelude {
     pub use crate::bevy_ecs::prelude::*;
@@ -20,8 +21,9 @@ pub mod prelude {
     pub use crate::ecs::events::SendMessage;
     pub use crate::ecs::resources::*;
 
-    pub use crate::plugin::FluxionWebSocketPlugin;
-    pub use crate::plugin::FluxionWebTransportPlugin;
+    pub use crate::plugins::network::*;
     pub use crate::ecs::resources::ServerTickRate as TickRate;
     pub use crate::network::channels::NetworkPayload;
+
+    pub use crate::plugin::Plugin;
 }

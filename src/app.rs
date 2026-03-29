@@ -71,8 +71,6 @@ impl FluxionApp {
     }
 
     /// サーバーのメインループを開始します。
-    /// 
-    /// `ServerTickRate` に基づいた固定レート（デフォルト60Hz）でスケジュールを実行します。
     pub fn run(&mut self) {
         println!("FluxionApp🚀 Started.");
 
@@ -175,9 +173,6 @@ impl FluxionApp {
     }
 
     /// システムをスケジュールに追加します。
-    /// 
-    /// ※注意: 現在の実装では引数 `_schedule` が使用されず、常に `self.schedule` に追加されます。
-    /// 複数のスケジュール（Startup, Updateなど）を分ける場合は実装の修正が必要です。
     pub fn add_systems<M, L>(
         &mut self,
         schedule_label: L,
