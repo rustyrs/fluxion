@@ -12,7 +12,7 @@ pub mod prelude {
     pub use crate::bevy_ecs::event::Event;
     pub use crate::bevy_ecs::message::{MessageReader, MessageWriter, Messages};
 
-    pub use crate::app::{FluxionApp, MainSchedule};
+    pub use crate::app::{FluxionApp, Update, FixedUpdate, Startup};
     pub use crate::ecs::components::*;
     pub use crate::ecs::events::*;
     pub use crate::ecs::systems::*;

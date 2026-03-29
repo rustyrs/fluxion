@@ -2,7 +2,7 @@
 //! チャットやネットワーク（WebSocket / WebTransport）関連の組み込みプラグインを定義します。
 
 use crate::ecs::events::UserDisconnected;
-use crate::app::{FluxionApp, MainSchedule};
+use crate::app::*;
 use crate::ecs::events::{MessageReceived, SendMessage};
 use crate::ecs::systems::NetworkReceiver;
 use crate::network::channels::NetworkEvent;
@@ -77,9 +77,6 @@ impl Plugin for ChatPlugin {
     fn build(self, app: &mut FluxionApp) {
         app.world.insert_resource(RoomMap::default());
         app.add_event::<ChatCommand>();
-        app.add_systems(MainSchedule, |mut msgs: ResMut<Messages<ChatCommand>>| {
-            msgs.update()
-        });
     }
 }
 
@@ -101,25 +98,23 @@ fn setup_network_ecs(app: &mut FluxionApp) {
     app.world.insert_resource(NetworkReceiver(ecs_rx));
 
     // メッセージ系イベントリソースの初期化
-    app.world.insert_resource(Messages::<MessageReceived>::default());
-    app.world.insert_resource(Messages::<SendMessage>::default());
-
-    // ネットワーク状態の管理リソース初期化
     app.world.insert_resource(ConnectionMap::default());
     app.world.insert_resource(RoomMap::default());
+    
+    app.add_event::<MessageReceived>();
     app.add_event::<SendMessage>();
     app.add_event::<UserDisconnected>();
 
     // ネットワークメッセージの送受信・更新システムを登録
     app.add_systems(
-        MainSchedule,
+        Update,
         (
-            |mut msgs: ResMut<Messages<MessageReceived>>| msgs.update(),
-            |mut msgs: ResMut<Messages<SendMessage>>| msgs.update(),
-            |mut msgs: ResMut<Messages<UserDisconnected>>| msgs.update(),
+            // ネットワークイベントの受信
             crate::ecs::systems::receive_network_messages_system,
+            // 切断されたユーザーのクリーンアップ（先ほど追加したもの）
+            crate::ecs::systems::cleanup_disconnected_users_system, // 後で任意化
+            // ネットワークイベントの送信
             crate::ecs::systems::flush_outbound_messages_system,
-            crate::ecs::systems::cleanup_disconnected_users_system, // あとで任意化
         )
     );
 }

@@ -13,11 +13,25 @@ use bevy_ecs::{
 };
 use crate::ecs::resources::ServerTickRate;
 
+// ============================================================================
+// スケジュールラベルの定義
+// ============================================================================
 
-/// メインの実行スケジュールを識別するためのラベル。
+/// サーバー起動時に1回だけ実行されるスケジュール
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct MainSchedule;
+pub struct Startup;
 
+/// 毎フレーム(可能な限り高速に)実行されるスケジュール (ネットワーク受信など)
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Update;
+
+/// 固定時間ごとに実行されるスケジュール (ゲームロジックや状態動機など)
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct FixedUpdate;
+
+// ============================================================================
+// アプリケーションコア
+// ============================================================================
 /// ECSの `World` と実行 `Schedule` を管理するコアアプリケーション構造体。
 /// 
 /// プラグインやシステムの登録、およびメイン実行ループの駆動を担います。
@@ -26,7 +40,7 @@ pub struct FluxionApp {
     /// 全てのエンティティ、コンポーネント、リソースを保持するECSワールド。
     pub world: World,
     /// システムが登録され、実行されるメインスケジュール。
-    pub schedule: Schedule,
+    pub schedules: Schedules,
     /// デフォルトのエラーハンドラ。
     default_error_handler: Option<ErrorHandler>,
 }
@@ -37,9 +51,14 @@ impl Default for FluxionApp {
         let mut world = World::new();
         world.insert_resource(ServerTickRate::default());
 
+        let mut schedules = Schedules::new();
+        schedules.insert(Schedule::new(Startup));
+        schedules.insert(Schedule::new(Update));
+        schedules.insert(Schedule::new(FixedUpdate));
+
         FluxionApp {
             world,
-            schedule: Schedule::new(MainSchedule),
+            schedules,
             default_error_handler: None,
         }
     }
@@ -55,28 +74,69 @@ impl FluxionApp {
     /// 
     /// `ServerTickRate` に基づいた固定レート（デフォルト60Hz）でスケジュールを実行します。
     pub fn run(&mut self) {
-        println!("FluxionApp🚀");
+        println!("FluxionApp🚀 Started.");
 
+        // =========================================================
+        // 1. Startup スケジュールの実行（サーバー起動時に1回だけ）
+        // =========================================================
+        if let Some(startup_schedule) = self.schedules.get_mut(Startup) {
+            startup_schedule.run(&mut self.world);
+        }
+
+        // サーバーのTickRateを取得
         let tick_rate = self.world
             .get_resource::<ServerTickRate>()
             .map(|r| r.0)
             .unwrap_or(60.0);
-        let target_duration = Duration::from_secs_f64(1.0 / tick_rate);
+        let fixed_timestep = Duration::from_secs_f64(1.0 / tick_rate);
 
-        // サーバーのメインループ
+        let mut previous_time = Instant::now();
+        let mut accumulator = Duration::ZERO;
+
+        // =========================================================
+        // メインループ
+        // =========================================================
         loop {
-            let frame_start = Instant::now();
+            let current_time = Instant::now();
+            let delta_time = current_time.duration_since(previous_time);
+            previous_time = current_time;
 
-            // スケジュールに登録されたすべてのシステムを実行
-            self.schedule.run(&mut self.world);
+            accumulator += delta_time;
 
-            let elapsed = frame_start.elapsed();
+            // -----------------------------------------------------
+            // 2. Update スケジュールの実行（毎フレーム実行）
+            // -----------------------------------------------------
+            if let Some(update_schedule) = self.schedules.get_mut(Update) {
+                update_schedule.run(&mut self.world);
+            }
 
-            // 目標時間よりも早く処理が終わった場合は、残りの時間だけスリープする
-            if elapsed < target_duration {
-                std::thread::sleep(target_duration - elapsed);
-            } else {
-                eprintln!("[Warning] Server is lagging! Tick took {elapsed:?}");
+            // -----------------------------------------------------
+            // 3. FixedUpdate スケジュールの実行（固定時間ごとに実行）
+            // -----------------------------------------------------
+            let mut frames_processed = 0;
+            while accumulator >= fixed_timestep {
+                if let Some(fixed_update) = self.schedules.get_mut(FixedUpdate) {
+                    fixed_update.run(&mut self.world);
+                }
+                accumulator -= fixed_timestep;
+                frames_processed += 1;
+
+                // 無限ループ対策
+                // サーバーが重すぎて処理が追いつかない場合、遅れを取り戻そうとして
+                // 無限にFixedUpdateが回り続けてしまうのを防ぐ。
+                if frames_processed >= 5 {
+                    eprintln!("[Warning] Server is severely lagging! Skipping fixed frames.");
+                    accumulator = Duration::ZERO;
+                    break;
+                }
+            }
+            // -----------------------------------------------------
+            // 4. CPU負荷軽減のためのスリープ
+            // -----------------------------------------------------
+            let elapsed_since_current = current_time.elapsed();
+            if elapsed_since_current < fixed_timestep {
+                // 次のTickまでに余裕がある場合は、OSにリソースを返還してスリープ
+                std::thread::sleep(fixed_timestep - elapsed_since_current);
             }
         }
     }
@@ -93,7 +153,7 @@ impl FluxionApp {
             self.world.insert_resource(Messages::<M>::default());
 
             self.add_systems(
-                MainSchedule,
+                Update,
                 |mut msgs: ResMut<Messages<M>>| msgs.update()
             );
         }
@@ -118,12 +178,25 @@ impl FluxionApp {
     /// 
     /// ※注意: 現在の実装では引数 `_schedule` が使用されず、常に `self.schedule` に追加されます。
     /// 複数のスケジュール（Startup, Updateなど）を分ける場合は実装の修正が必要です。
-    pub fn add_systems<M>(
+    pub fn add_systems<M, L>(
         &mut self,
-        _schedule: impl ScheduleLabel,
+        schedule_label: L,
         systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
-    ) -> &mut Self {
-        self.schedule.add_systems(systems);
+    ) -> &mut Self
+    where 
+        L: ScheduleLabel + Clone
+    {
+        // 指定されたラベルの箱がまだ存在しない場合は新しく作る
+        if !self.schedules.contains(schedule_label.clone()) {
+            self.schedules.insert(Schedule::new(schedule_label.clone()));
+        }
+
+        // ラベルに対応する箱を取り出しそこにシステムを登録する
+        self.schedules
+            .get_mut(schedule_label)
+            .unwrap()
+            .add_systems(systems);
+
         self
     }
 }
