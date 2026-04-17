@@ -3,16 +3,37 @@
 Ecsonへの貢献に興味を持っていただきありがとうございます。
 このドキュメントでは、開発環境のセットアップからPRの送り方まで説明します。
 
+c
+e
+m
+n
+p:
+
 ## 目次
 
-- [開発環境のセットアップ](#開発環境のセットアップ)
-- [ワークスペース構成](#ワークスペース構成)
-- [クレートの役割と依存関係](#クレートの役割と依存関係)
-- [ビルドとチェック](#ビルドとチェック)
-- [サンプルの実行](#サンプルの実行)
-- [どのクレートに追加するか](#どのクレートに追加するか)
-- [コーディング規約](#コーディング規約)
-- [ブランチとPRの運用](#ブランチとPRの運用)
+- [Ecson コントリビューションガイド](#ecson-コントリビューションガイド)
+  - [目次](#目次)
+  - [開発環境のセットアップ](#開発環境のセットアップ)
+    - [必要なもの](#必要なもの)
+    - [セットアップ手順](#セットアップ手順)
+  - [ワークスペース構成](#ワークスペース構成)
+  - [クレートの役割と依存関係](#クレートの役割と依存関係)
+    - [依存グラフ](#依存グラフ)
+    - [各クレートの責務](#各クレートの責務)
+  - [ビルドとチェック](#ビルドとチェック)
+    - [clippy と fmt と test](#clippy-と-fmt-と-test)
+  - [サンプルの実行](#サンプルの実行)
+  - [どのクレートに追加するか](#どのクレートに追加するか)
+    - [新しいプラグインを追加する](#新しいプラグインを追加する)
+    - [`EcsonApp` のAPIを変更する](#ecsonapp-のapiを変更する)
+    - [ネットワーク実装を変更する](#ネットワーク実装を変更する)
+    - [`ecson` の公開APIに変更を加える](#ecson-の公開apiに変更を加える)
+  - [コーディング規約](#コーディング規約)
+  - [ブランチとPRの運用](#ブランチとprの運用)
+    - [ブランチ命名](#ブランチ命名)
+    - [PRのチェックリスト](#prのチェックリスト)
+    - [受け付けている貢献の種類](#受け付けている貢献の種類)
+  - [PRテンプレート](#prテンプレート)
 
 ---
 
@@ -44,7 +65,7 @@ ecson/
 │   ├── ecson_core/          ← EcsonApp, Plugin, スケジュールラベル
 │   ├── ecson_ecs/           ← ECS型, チャンネル型, 組み込みプラグイン
 │   ├── ecson_network/       ← WebSocket, WebTransport, TLS
-│   └── ecson_macros/        ← deriveマクロ（将来用）
+│   └── ecson_macros/        ← deriveマクロ
 └── ecson/                   ← 公開ファサードクレート（pub use で再エクスポート）
     ├── src/lib.rs
     └── examples/            ← echo.rs, broadcast_chat.rs など
@@ -77,7 +98,7 @@ ecson         (上4クレートすべてを pub use)
 | `ecson_core` | `EcsonApp`、スケジュールラベル（`Update`/`FixedUpdate`/`Startup`）、`Plugin` トレイト、`ServerTimeConfig` |
 | `ecson_ecs` | `NetworkPayload`/`NetworkEvent`（チャンネル型）、ECSコンポーネント・イベント・リソース・システム、組み込みプラグイン（chat, heartbeat, lobby, presence, rate_limit, snapshot, spatial） |
 | `ecson_network` | WebSocket/WebTransport/WSS のサーバー実装、TLS ユーティリティ、`EcsonWebSocketPlugin` などのネットワーク系プラグイン |
-| `ecson_macros` | derive マクロ（現在未実装） |
+| `ecson_macros` | derive マクロ |
 | `ecson` | 上記すべての再エクスポート、examples |
 
 ---
@@ -98,13 +119,14 @@ cargo check -p ecson_ecs
 cargo build --release
 ```
 
-### clippy と fmt
+### clippy と fmt と test
 
 PRを送る前に以下を通してください。
 
 ```bash
 cargo fmt --all
 cargo clippy --all-targets -- -D warnings
+cargo test --all
 ```
 
 ---
@@ -115,7 +137,6 @@ cargo clippy --all-targets -- -D warnings
 cargo run --example echo
 cargo run --example broadcast_chat
 cargo run --example room_chat
-cargo run --example spatial_2d
 ```
 
 フロントエンドのテスト用HTMLは `ecson/examples/frontend/` にあります。
@@ -143,18 +164,9 @@ ecson_ecs/src/plugins/
 
 ネットワークトランスポートが必要なプラグイン（Tokioランタイムを起動するもの）は `ecson_network/src/plugin.rs` に追加します。
 
-### 新しいECS型（コンポーネント・イベント・リソース）を追加する
-
-- コンポーネント → `ecson_ecs/src/components.rs`
-- イベント（Message/Event） → `ecson_ecs/src/events.rs`
-- リソース → `ecson_ecs/src/resources.rs`
-
-追加した型は `ecson_ecs/src/lib.rs` の `prelude` から再エクスポートされているか確認してください。
-
 ### `EcsonApp` のAPIを変更する
 
 `ecson_core/src/app.rs` を変更します。
-`ServerTimeConfig` の変更は `ecson_core/src/server_time_config.rs` です。
 
 ### ネットワーク実装を変更する
 
@@ -185,11 +197,15 @@ ecson_ecs/src/plugins/
 
 ### ブランチ命名
 
+`[type]/[scope]:[content]`
+
+`type`はfeat, fix, refactor, docs
+
 | 種類 | 命名例 |
 |---|---|
-| 機能追加 | `feat/add-auth-plugin` |
-| バグ修正 | `fix/ws-disconnect-panic` |
-| リファクタリング | `refactor/ecson-ecs-split` |
+| 機能追加 | `feat/p:add-auth-plugin` |
+| バグ修正 | `fix/n:ws-disconnect-panic` |
+| リファクタリング | `refactor/e:ecson-ecs-split` |
 | ドキュメント | `docs/contributing-guide` |
 
 ### PRのチェックリスト
